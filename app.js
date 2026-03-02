@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 const app = express();
 const PORT = 4000;
 
-mongoose.connect('mongodb://localhost:27017/graphql-practice', { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect('mongodb://localhost:27017/graphql-practice', { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false });
 mongoose.connection.on('error', console.error.bind(console, "connection errror :"));
 mongoose.connection.once('open', () =>
     console.log('Connected to Database')
