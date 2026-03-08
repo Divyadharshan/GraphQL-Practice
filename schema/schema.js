@@ -1,11 +1,20 @@
 const Book = require('../models/book');
 const Author = require('../models/author');
+const Review = require('../models/review');
 
 const typeDefs = `
     type Book {
         id: ID!
         name: String
         genre: String
+        author: Author
+        reviews: [Review]
+    }
+
+    type Review {
+        id: ID!
+        content: String
+        book: Book
         author: Author
     }
 
@@ -28,6 +37,7 @@ const typeDefs = `
         addBook(name: String!, genre: String!, authorId: ID!): Book
         updateBook(id: ID!, name: String, genre: String): Book
         updateAuthor(id: ID!, age: Int): Author
+        addReview(bookId: ID!, content: String!, authorId: ID!): Review
     }
 `;
 
@@ -63,13 +73,22 @@ const resolvers = {
                 tbupdated.age = args.age;
             }
             return await Author.findByIdAndUpdate(args.id, { $set: tbupdated }, { new: true });
+        },
+        addReview: async (parent, args) => {
+            let review = new Review({ bookId: args.bookId, content: args.content, authorId: args.authorId });
+            return await review.save();
         }
     },
     Book: {
-        author: async (parent) => await Author.findById(parent.authorId)
+        author: async (parent) => await Author.findById(parent.authorId),
+        reviews: async (parent) => await Review.find({ bookId: parent.id })
     },
     Author: {
         books: async (parent) => await Book.find({ authorId: parent.id })
+    },
+    Review: {
+        book: async (parent) => await Book.findById(parent.bookId),
+        author: async (parent) => await Author.findById(parent.authorId)
     }
 };
 
