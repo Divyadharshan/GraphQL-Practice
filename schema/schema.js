@@ -28,8 +28,17 @@ const typeDefs = `
     type Query {
         book(id: ID!): Book
         author(id: ID!): Author
-        books: [Book]
+        books(genre: String): [Book]
         authors: [Author]
+        totalBooks: Int
+        totalAuthors: Int
+        searchBooks(name: String!): [Book]
+    }
+
+    type MutationResponse {
+        success: Boolean!
+        message: String
+        id: ID
     }
 
     type Mutation {
@@ -38,6 +47,8 @@ const typeDefs = `
         updateBook(id: ID!, name: String, genre: String): Book
         updateAuthor(id: ID!, age: Int): Author
         addReview(bookId: ID!, content: String!, authorId: ID!): Review
+        deleteBook(id: ID!): MutationResponse
+        deleteAuthor(id: ID!): MutationResponse
     }
 `;
 
@@ -45,8 +56,18 @@ const resolvers = {
     Query: {
         book: async (parent, args) => await Book.findById(args.id),
         author: async (parent, args) => await Author.findById(args.id),
-        books: async () => await Book.find({}),
+        books: async (parent, { genre }) => {
+            if (genre) {
+                return await Book.find({ genre });
+            }
+            return await Book.find({});
+        },
         authors: async () => await Author.find({}),
+        totalBooks: async () => await Book.countDocuments({}),
+        totalAuthors: async () => await Author.countDocuments({}),
+        searchBooks: async (parent, { name }) => {
+            return await Book.find({ name: { $regex: name, $options: 'i' } });
+        }
     },
     Mutation: {
         addAuthor: async (parent, args) => {
@@ -77,6 +98,34 @@ const resolvers = {
         addReview: async (parent, args) => {
             let review = new Review({ bookId: args.bookId, content: args.content, authorId: args.authorId });
             return await review.save();
+        },
+        deleteBook: async (parent, { id }) => {
+            try {
+                await Review.deleteMany({ bookId: id });
+                const deletedBook = await Book.findByIdAndDelete(id);
+                if (!deletedBook) {
+                    return { success: false, message: "Book not found", id };
+                }
+                return { success: true, message: "Book deleted successfully", id };
+            } catch (error) {
+                return { success: false, message: error.message, id };
+            }
+        },
+        deleteAuthor: async (parent, { id }) => {
+            try {
+                const books = await Book.find({ authorId: id });
+                const bookIds = books.map(book => book.id);
+                await Review.deleteMany({ bookId: { $in: bookIds } });
+                await Review.deleteMany({ authorId: id });
+                await Book.deleteMany({ authorId: id });
+                const deletedAuthor = await Author.findByIdAndDelete(id);
+                if (!deletedAuthor) {
+                    return { success: false, message: "Author not found", id };
+                }
+                return { success: true, message: "Author deleted successfully", id };
+            } catch (error) {
+                return { success: false, message: error.message, id };
+            }
         }
     },
     Book: {
